@@ -1,0 +1,22 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+build/
+dist/
+*.egg-info/
+
+# Local prompt and AI-agent working files
+*_prompt.txt
+*prompt*.txt
+.agents/
+.codex/
+.ai/
+.aider*
+.claude/
+.cursor/
+.continue/
+.openai/
+.windsurf/

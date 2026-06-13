@@ -1,0 +1,243 @@
+# Spring Toolkit MCP
+
+Spring Toolkit MCP is a secure-by-default MCP server and CLI for agentic review of
+real Spring Boot repositories. It focuses on the practical developer workflow
+teams need in production: inspect a Java/Spring codebase, expose safe tools to
+an AI agent, and produce review signals around controllers, configuration,
+Flyway migrations, JPA, and test opportunities.
+
+The second design goal is simple: **Spring Boot Admin for AI agents**. Human
+operators use dashboards; agents need structured tools. Spring Toolkit MCP now
+has both workspace inspection and runtime Actuator access, with mutating actions
+behind explicit policy flags.
+
+This first version is intentionally dependency-free Python. It can run as:
+
+- an MCP stdio server for clients that support tools/list and tools/call
+- a local CLI that prints Markdown or JSON reports
+- a Python library for future integrations with Continue, OpenHands, Aider, or CI
+
+## Features
+
+- Detects Maven and Gradle build metadata
+- Scans Spring annotations such as controllers, services, repositories, entities,
+  mappers, configuration classes, and application entrypoints
+- Extracts endpoint mappings and security annotations from Java sources
+- Reads `application*.properties`, `application*.yml`, and `application*.yaml`
+  while redacting likely secrets
+- Scans Flyway migrations for risky operations
+- Lists configured Spring Boot Actuator applications
+- Reads Actuator health, info, metrics, env, loggers, thread dumps, heap metrics,
+  scheduled tasks, caches, and HTTP traces
+- Changes logger levels only when explicitly enabled by policy
+- Reads Maven Surefire and JaCoCo reports
+- Runs Maven or Gradle tests only when explicitly enabled by policy
+- Generates pragmatic Markdown review reports
+- Suggests MockMvc test skeletons for controllers
+- Guards MCP access to configured workspace roots
+
+## Quick Start
+
+From a fresh checkout, install the package in editable mode:
+
+```powershell
+python -m pip install -e .
+```
+
+Run a Markdown review for the current directory:
+
+```powershell
+spring-toolkit review .
+```
+
+Run a JSON summary:
+
+```powershell
+spring-toolkit summary . --json
+```
+
+Start the MCP server:
+
+```powershell
+spring-toolkit-mcp
+```
+
+## Modes
+
+Workspace mode inspects a local repository:
+
+```powershell
+spring-toolkit review C:\work\orders-service
+spring-toolkit mockmvc C:\work\orders-service --controller OrderController
+```
+
+Runtime mode connects to Spring Boot Actuator:
+
+```powershell
+$env:SPRING_TOOLKIT_ACTUATOR_BASE_URLS = "orders=http://localhost:8080/actuator;billing=http://localhost:8081/actuator"
+spring-toolkit apps
+spring-toolkit health --application orders
+spring-toolkit metrics --application orders --metric http.server.requests
+```
+
+Full mode combines both in the MCP client: the agent can inspect code, read
+runtime health/metrics, read reports, and propose a fix from one tool surface.
+
+By default, workspace MCP tool calls can only inspect the current working
+directory. To allow other roots, set `SPRING_TOOLKIT_ALLOWED_ROOTS` to a
+semicolon-separated list of absolute paths:
+
+```powershell
+$env:SPRING_TOOLKIT_ALLOWED_ROOTS = "C:\work\project-a;C:\work\project-b"
+spring-toolkit-mcp
+```
+
+When running directly from the checkout without installing, set `PYTHONPATH`:
+
+```powershell
+$env:PYTHONPATH = "src"
+python -m spring_toolkit_mcp.cli review .
+```
+
+## Runtime Configuration
+
+Configure one Actuator app:
+
+```powershell
+$env:SPRING_TOOLKIT_ACTUATOR_BASE_URL = "http://localhost:8080/actuator"
+```
+
+Configure multiple named apps:
+
+```powershell
+$env:SPRING_TOOLKIT_ACTUATOR_BASE_URLS = "orders=http://localhost:8080/actuator;billing=http://localhost:8081/actuator"
+```
+
+Optional Basic Auth:
+
+```powershell
+$env:SPRING_TOOLKIT_ACTUATOR_USERNAME = "admin"
+$env:SPRING_TOOLKIT_ACTUATOR_PASSWORD = "secret"
+```
+
+Mutating logger changes are disabled by default:
+
+```powershell
+$env:SPRING_TOOLKIT_ENABLE_LOGGER_MUTATION = "true"
+```
+
+Build/test execution is also disabled by default:
+
+```powershell
+$env:SPRING_TOOLKIT_ENABLE_TEST_RUNS = "true"
+spring-toolkit maven-test C:\work\orders-service --test OrderServiceTest
+```
+
+## MCP Tools
+
+`spring_project_summary`
+
+Returns structured metadata for a Spring Boot repository: build files,
+dependencies, source roots, components, endpoint mappings, config keys, and
+Flyway migrations.
+
+`analyze_project_structure`, `list_rest_controllers`, `list_endpoints`,
+`inspect_application_properties`, `inspect_flyway_migrations`
+
+Workspace aliases with names that are easy for agents to select during codebase
+inspection.
+
+`spring_code_review`
+
+Returns a pragmatic Markdown or JSON review focused on missing authorization
+signals, risky migrations, sensitive configuration, missing test directories,
+and common Spring/JPA footguns.
+
+`spring_flyway_risk_scan`
+
+Returns a focused Flyway migration report.
+
+`spring_generate_mockmvc_tests`
+
+Generates starter MockMvc test skeletons for detected controllers.
+
+`list_applications`, `get_health_status`, `get_info`, `get_metrics`,
+`get_env_properties`, `get_loggers`, `get_thread_dump`, `get_heap_info`,
+`get_scheduled_tasks`, `get_cache_stats`, `get_http_traces`
+
+Actuator-backed runtime tools. `get_env_properties` redacts likely secrets.
+
+`change_logger_level`
+
+Actuator-backed logger mutation. It requires
+`SPRING_TOOLKIT_ENABLE_LOGGER_MUTATION=true`.
+
+`run_maven_tests`, `run_gradle_tests`, `run_specific_test`,
+`read_surefire_report`, `read_jacoco_report`
+
+Quality-gate tools. Report readers are passive; test runners require
+`SPRING_TOOLKIT_ENABLE_TEST_RUNS=true`.
+
+## Demo Flow
+
+User prompt:
+
+```text
+Analyze why orders-service is slow before I open the PR.
+```
+
+An agent can call:
+
+```text
+get_health_status(application="orders")
+get_metrics(application="orders", metric="http.server.requests")
+get_heap_info(application="orders")
+list_endpoints(path="C:\work\orders-service")
+read_surefire_report(path="C:\work\orders-service")
+spring_code_review(path="C:\work\orders-service")
+```
+
+Then it can summarize runtime symptoms, related controller/service code, test
+status, migration risk, and concrete next steps.
+
+## MCP Client Configuration Example
+
+```json
+{
+  "mcpServers": {
+    "spring-toolkit": {
+      "command": "python",
+      "args": ["-m", "spring_toolkit_mcp.server"],
+      "env": {
+        "SPRING_TOOLKIT_ALLOWED_ROOTS": "C:\\work\\my-spring-app",
+        "SPRING_TOOLKIT_ACTUATOR_BASE_URLS": "orders=http://localhost:8080/actuator"
+      }
+    }
+  }
+}
+```
+
+## Development
+
+Run tests:
+
+```powershell
+python -m unittest discover -s tests
+```
+
+The project has no runtime dependencies. That is deliberate for the MVP: agents
+can run it in locked-down enterprise environments, and the MCP surface stays
+easy to audit.
+
+## Roadmap
+
+- Maven and Gradle test execution tools with explicit allowlists
+- SonarQube report ingestion
+- PostgreSQL schema introspection
+- Spring Security 6 focused checks
+- MapStruct and Lombok deeper analysis
+- Continue/OpenHands recipes and CI examples
+
+## License
+
+Spring Toolkit MCP is open source software released under the [MIT License](LICENSE).
