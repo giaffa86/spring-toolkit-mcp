@@ -27,9 +27,13 @@ This first version is intentionally dependency-free Python. It can run as:
   while redacting likely secrets
 - Scans Flyway migrations for risky operations
 - Lists configured Spring Boot Actuator applications
-- Reads Actuator health, info, metrics, env, loggers, thread dumps, heap metrics,
-  scheduled tasks, caches, and HTTP traces
-- Changes logger levels only when explicitly enabled by policy
+- Reads Actuator endpoint index, health, info, audit events, beans, conditions,
+  config properties, mappings, metrics, env, loggers, thread dumps, heap metrics,
+  startup steps, scheduled tasks, caches, HTTP exchanges/traces, Flyway and
+  Liquibase status, Spring Integration graph, Quartz, sessions, SBOM,
+  Prometheus, bounded log files, and heap dump metadata
+- Changes logger levels, deletes sessions, and reads sensitive Actuator downloads
+  only when explicitly enabled by policy
 - Reads Maven Surefire and JaCoCo reports
 - Runs Maven or Gradle tests only when explicitly enabled by policy
 - Generates pragmatic Markdown review reports
@@ -76,8 +80,10 @@ Runtime mode connects to Spring Boot Actuator:
 ```powershell
 $env:SPRING_TOOLKIT_ACTUATOR_BASE_URLS = "orders=http://localhost:8080/actuator;billing=http://localhost:8081/actuator"
 spring-toolkit apps
+spring-toolkit actuator --application orders
 spring-toolkit health --application orders
 spring-toolkit metrics --application orders --metric http.server.requests
+spring-toolkit mappings --application orders
 ```
 
 Full mode combines both in the MCP client: the agent can inspect code, read
@@ -126,12 +132,32 @@ Mutating logger changes are disabled by default:
 $env:SPRING_TOOLKIT_ENABLE_LOGGER_MUTATION = "true"
 ```
 
+Sensitive Actuator downloads are disabled by default. Enable them before using
+`logfile` or heap dump metadata tools:
+
+```powershell
+$env:SPRING_TOOLKIT_ENABLE_ACTUATOR_DOWNLOADS = "true"
+```
+
+Session deletion is disabled by default:
+
+```powershell
+$env:SPRING_TOOLKIT_ENABLE_SESSION_MUTATION = "true"
+```
+
 Build/test execution is also disabled by default:
 
 ```powershell
 $env:SPRING_TOOLKIT_ENABLE_TEST_RUNS = "true"
 spring-toolkit maven-test C:\work\orders-service --test OrderServiceTest
 ```
+
+Runtime CLI commands mirror the MCP runtime surface: `apps`, `actuator`,
+`health`, `info`, `auditevents`, `beans`, `conditions`, `configprops`,
+`mappings`, `metrics`, `env`, `loggers`, `set-logger-level`, `threaddump`,
+`heap-info`, `heapdump`, `scheduledtasks`, `caches`, `httpexchanges`,
+`actuator-flyway`, `liquibase`, `integrationgraph`, `quartz`, `sessions`,
+`delete-session`, `startup`, `sbom`, `prometheus`, and `logfile`.
 
 ## MCP Tools
 
@@ -161,16 +187,24 @@ Returns a focused Flyway migration report.
 
 Generates starter MockMvc test skeletons for detected controllers.
 
-`list_applications`, `get_health_status`, `get_info`, `get_metrics`,
-`get_env_properties`, `get_loggers`, `get_thread_dump`, `get_heap_info`,
-`get_scheduled_tasks`, `get_cache_stats`, `get_http_traces`
+`list_applications`, `list_actuator_endpoints`, `get_health_status`,
+`get_info`, `get_audit_events`, `get_beans`, `get_conditions`,
+`get_config_properties`, `get_mappings`, `get_flyway_status`,
+`get_liquibase_status`, `get_integration_graph`, `get_metrics`,
+`get_env_properties`, `get_loggers`, `get_thread_dump`, `get_startup`,
+`get_heap_info`, `get_heap_dump_metadata`, `get_scheduled_tasks`,
+`get_cache_stats`, `get_http_traces`, `get_quartz`, `get_sessions`, `get_sbom`,
+`get_prometheus`, `get_log_file`
 
-Actuator-backed runtime tools. `get_env_properties` redacts likely secrets.
+Actuator-backed runtime tools. `get_env_properties` and
+`get_config_properties` redact likely secrets. `get_log_file` and
+`get_heap_dump_metadata` require `SPRING_TOOLKIT_ENABLE_ACTUATOR_DOWNLOADS=true`.
 
-`change_logger_level`
+`change_logger_level`, `delete_session`
 
-Actuator-backed logger mutation. It requires
-`SPRING_TOOLKIT_ENABLE_LOGGER_MUTATION=true`.
+Actuator-backed mutations. Logger changes require
+`SPRING_TOOLKIT_ENABLE_LOGGER_MUTATION=true`; session deletion requires
+`SPRING_TOOLKIT_ENABLE_SESSION_MUTATION=true`.
 
 `run_maven_tests`, `run_gradle_tests`, `run_specific_test`,
 `read_surefire_report`, `read_jacoco_report`

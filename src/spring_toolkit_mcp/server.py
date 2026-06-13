@@ -159,8 +159,52 @@ TOOLS: dict[str, dict[str, Any]] = {
         "description": "Read /actuator/health for an application.",
         "inputSchema": {"type": "object", "properties": {"application": {"type": "string"}}},
     },
+    "list_actuator_endpoints": {
+        "description": "Read the Actuator endpoint index for an application.",
+        "inputSchema": {"type": "object", "properties": {"application": {"type": "string"}}},
+    },
     "get_info": {
         "description": "Read /actuator/info for an application.",
+        "inputSchema": {"type": "object", "properties": {"application": {"type": "string"}}},
+    },
+    "get_audit_events": {
+        "description": "Read /actuator/auditevents.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "application": {"type": "string"},
+                "principal": {"type": "string"},
+                "after": {"type": "string", "description": "ISO-8601 timestamp filter."},
+                "type": {"type": "string", "description": "Audit event type filter."},
+            },
+        },
+    },
+    "get_beans": {
+        "description": "Read /actuator/beans.",
+        "inputSchema": {"type": "object", "properties": {"application": {"type": "string"}}},
+    },
+    "get_conditions": {
+        "description": "Read /actuator/conditions.",
+        "inputSchema": {"type": "object", "properties": {"application": {"type": "string"}}},
+    },
+    "get_config_properties": {
+        "description": "Read /actuator/configprops with sensitive values redacted.",
+        "inputSchema": {"type": "object", "properties": {"application": {"type": "string"}}},
+    },
+    "get_mappings": {
+        "description": "Read /actuator/mappings.",
+        "inputSchema": {"type": "object", "properties": {"application": {"type": "string"}}},
+    },
+    "get_flyway_status": {
+        "description": "Read /actuator/flyway runtime migration state.",
+        "inputSchema": {"type": "object", "properties": {"application": {"type": "string"}}},
+    },
+    "get_liquibase_status": {
+        "description": "Read /actuator/liquibase runtime migration state.",
+        "inputSchema": {"type": "object", "properties": {"application": {"type": "string"}}},
+    },
+    "get_integration_graph": {
+        "description": "Read /actuator/integrationgraph.",
         "inputSchema": {"type": "object", "properties": {"application": {"type": "string"}}},
     },
     "get_metrics": {
@@ -200,8 +244,16 @@ TOOLS: dict[str, dict[str, Any]] = {
         "description": "Read /actuator/threaddump.",
         "inputSchema": {"type": "object", "properties": {"application": {"type": "string"}}},
     },
+    "get_startup": {
+        "description": "Read /actuator/startup.",
+        "inputSchema": {"type": "object", "properties": {"application": {"type": "string"}}},
+    },
     "get_heap_info": {
         "description": "Read JVM memory metrics from Actuator.",
+        "inputSchema": {"type": "object", "properties": {"application": {"type": "string"}}},
+    },
+    "get_heap_dump_metadata": {
+        "description": "Read /actuator/heapdump response headers when actuator downloads are enabled.",
         "inputSchema": {"type": "object", "properties": {"application": {"type": "string"}}},
     },
     "get_scheduled_tasks": {
@@ -215,6 +267,52 @@ TOOLS: dict[str, dict[str, Any]] = {
     "get_http_traces": {
         "description": "Read /actuator/httpexchanges or /actuator/httptrace.",
         "inputSchema": {"type": "object", "properties": {"application": {"type": "string"}}},
+    },
+    "get_quartz": {
+        "description": "Read /actuator/quartz or a quartz sub-resource.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "application": {"type": "string"},
+                "selector": {"type": "string", "description": "Optional quartz sub-path such as jobs or triggers."},
+            },
+        },
+    },
+    "get_sessions": {
+        "description": "Read /actuator/sessions or one session.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"application": {"type": "string"}, "session_id": {"type": "string"}},
+        },
+    },
+    "delete_session": {
+        "description": "Delete one Actuator session when explicitly enabled by policy.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"application": {"type": "string"}, "session_id": {"type": "string"}},
+            "required": ["session_id"],
+        },
+    },
+    "get_sbom": {
+        "description": "Read /actuator/sbom or one SBOM by id.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"application": {"type": "string"}, "sbom_id": {"type": "string"}},
+        },
+    },
+    "get_prometheus": {
+        "description": "Read /actuator/prometheus as bounded text.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"application": {"type": "string"}, "max_chars": {"type": "integer", "default": 20000}},
+        },
+    },
+    "get_log_file": {
+        "description": "Read /actuator/logfile as bounded text when actuator downloads are enabled.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"application": {"type": "string"}, "max_chars": {"type": "integer", "default": 20000}},
+        },
     },
 }
 
@@ -280,16 +378,33 @@ class MCPServer:
         runtime_tool_names = {
             "list_applications",
             "get_health_status",
+            "list_actuator_endpoints",
             "get_info",
+            "get_audit_events",
+            "get_beans",
+            "get_conditions",
+            "get_config_properties",
+            "get_mappings",
+            "get_flyway_status",
+            "get_liquibase_status",
+            "get_integration_graph",
             "get_metrics",
             "get_env_properties",
             "get_loggers",
             "change_logger_level",
             "get_thread_dump",
+            "get_startup",
             "get_heap_info",
+            "get_heap_dump_metadata",
             "get_scheduled_tasks",
             "get_cache_stats",
             "get_http_traces",
+            "get_quartz",
+            "get_sessions",
+            "delete_session",
+            "get_sbom",
+            "get_prometheus",
+            "get_log_file",
         }
         if name in runtime_tool_names:
             return text_content(json.dumps(self.call_runtime_tool(name, arguments), indent=2))
@@ -344,8 +459,31 @@ class MCPServer:
             return client.list_applications()
         if name == "get_health_status":
             return client.get_health_status(application)
+        if name == "list_actuator_endpoints":
+            return client.list_actuator_endpoints(application)
         if name == "get_info":
             return client.get_info(application)
+        if name == "get_audit_events":
+            return client.get_audit_events(
+                application,
+                arguments.get("principal"),
+                arguments.get("after"),
+                arguments.get("type"),
+            )
+        if name == "get_beans":
+            return client.get_beans(application)
+        if name == "get_conditions":
+            return client.get_conditions(application)
+        if name == "get_config_properties":
+            return client.get_config_properties(application)
+        if name == "get_mappings":
+            return client.get_mappings(application)
+        if name == "get_flyway_status":
+            return client.get_flyway_status(application)
+        if name == "get_liquibase_status":
+            return client.get_liquibase_status(application)
+        if name == "get_integration_graph":
+            return client.get_integration_graph(application)
         if name == "get_metrics":
             return client.get_metrics(application, arguments.get("metric"))
         if name == "get_env_properties":
@@ -356,14 +494,30 @@ class MCPServer:
             return client.change_logger_level(application, arguments["logger"], arguments.get("level"))
         if name == "get_thread_dump":
             return client.get_thread_dump(application)
+        if name == "get_startup":
+            return client.get_startup(application)
         if name == "get_heap_info":
             return client.get_heap_info(application)
+        if name == "get_heap_dump_metadata":
+            return client.get_heap_dump_metadata(application)
         if name == "get_scheduled_tasks":
             return client.get_scheduled_tasks(application)
         if name == "get_cache_stats":
             return client.get_cache_stats(application)
         if name == "get_http_traces":
             return client.get_http_traces(application)
+        if name == "get_quartz":
+            return client.get_quartz(application, arguments.get("selector"))
+        if name == "get_sessions":
+            return client.get_sessions(application, arguments.get("session_id"))
+        if name == "delete_session":
+            return client.delete_session(application, arguments["session_id"])
+        if name == "get_sbom":
+            return client.get_sbom(application, arguments.get("sbom_id"))
+        if name == "get_prometheus":
+            return client.get_prometheus(application, arguments.get("max_chars", 20000))
+        if name == "get_log_file":
+            return client.get_log_file(application, arguments.get("max_chars", 20000))
         raise ValueError(f"Unhandled runtime tool: {name}")
 
     def resolve_allowed_path(self, requested: str | Path) -> Path:

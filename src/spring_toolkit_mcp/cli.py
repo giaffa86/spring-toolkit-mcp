@@ -84,6 +84,68 @@ def build_parser() -> argparse.ArgumentParser:
     loggers.add_argument("--logger", help="Optional logger name.")
     loggers.set_defaults(func=loggers_command)
 
+    set_logger = subparsers.add_parser("set-logger-level", help="Change an Actuator logger level when enabled.")
+    set_logger.add_argument("--application", help="Configured application name.")
+    set_logger.add_argument("--logger", required=True, help="Logger name.")
+    set_logger.add_argument("--level", required=True, help="TRACE, DEBUG, INFO, WARN, ERROR, FATAL, OFF, or NULL.")
+    set_logger.set_defaults(func=set_logger_level_command)
+
+    runtime_parser(subparsers, "actuator", "Read the Actuator endpoint index.", actuator_command)
+    runtime_parser(subparsers, "info", "Read Actuator info.", info_command)
+    env = runtime_parser(subparsers, "env", "Read Actuator env with sensitive values redacted.", env_command)
+    env.add_argument("--pattern", help="Optional property-name filter.")
+
+    runtime_parser(subparsers, "threaddump", "Read Actuator thread dump.", threaddump_command)
+    runtime_parser(subparsers, "heap-info", "Read JVM heap metrics.", heap_info_command)
+    runtime_parser(subparsers, "scheduledtasks", "Read Actuator scheduled tasks.", scheduledtasks_command)
+    runtime_parser(subparsers, "caches", "Read Actuator caches.", caches_command)
+    runtime_parser(subparsers, "httpexchanges", "Read Actuator HTTP exchanges/traces.", httpexchanges_command)
+    runtime_parser(subparsers, "beans", "Read Actuator beans.", beans_command)
+    runtime_parser(subparsers, "conditions", "Read Actuator conditions.", conditions_command)
+    runtime_parser(subparsers, "configprops", "Read Actuator config properties.", configprops_command)
+    runtime_parser(subparsers, "mappings", "Read Actuator mappings.", mappings_command)
+    runtime_parser(subparsers, "actuator-flyway", "Read Actuator Flyway status.", actuator_flyway_command)
+    runtime_parser(subparsers, "liquibase", "Read Actuator Liquibase status.", liquibase_command)
+    runtime_parser(subparsers, "integrationgraph", "Read Actuator integration graph.", integrationgraph_command)
+    runtime_parser(subparsers, "startup", "Read Actuator startup steps.", startup_command)
+
+    auditevents = runtime_parser(subparsers, "auditevents", "Read Actuator audit events.", auditevents_command)
+    auditevents.add_argument("--principal", help="Optional principal filter.")
+    auditevents.add_argument("--after", help="Optional ISO-8601 timestamp filter.")
+    auditevents.add_argument("--type", dest="event_type", help="Optional audit event type filter.")
+
+    quartz = runtime_parser(subparsers, "quartz", "Read Actuator quartz data.", quartz_command)
+    quartz.add_argument("--selector", help="Optional quartz sub-path such as jobs or triggers.")
+
+    sessions = runtime_parser(subparsers, "sessions", "Read Actuator sessions.", sessions_command)
+    sessions.add_argument("--session-id", help="Optional session id.")
+
+    delete_session = runtime_parser(subparsers, "delete-session", "Delete an Actuator session when enabled.", delete_session_command)
+    delete_session.add_argument("--session-id", required=True, help="Session id to delete.")
+
+    sbom = runtime_parser(subparsers, "sbom", "Read Actuator SBOM data.", sbom_command)
+    sbom.add_argument("--sbom-id", help="Optional SBOM id.")
+
+    prometheus = runtime_parser(subparsers, "prometheus", "Read Actuator Prometheus text.", prometheus_command)
+    prometheus.add_argument("--max-chars", type=int, default=20000, help="Maximum characters to return.")
+
+    logfile = runtime_parser(subparsers, "logfile", "Read Actuator logfile text when enabled.", logfile_command)
+    logfile.add_argument("--max-chars", type=int, default=20000, help="Maximum characters to return.")
+
+    runtime_parser(subparsers, "heapdump", "Read heapdump response metadata when enabled.", heapdump_command)
+
+    return parser
+
+
+def runtime_parser(
+    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
+    name: str,
+    help_text: str,
+    func: Any,
+) -> argparse.ArgumentParser:
+    parser = subparsers.add_parser(name, help=help_text)
+    parser.add_argument("--application", help="Configured application name.")
+    parser.set_defaults(func=func)
     return parser
 
 
@@ -150,6 +212,117 @@ def metrics_command(args: argparse.Namespace) -> str:
 
 def loggers_command(args: argparse.Namespace) -> str:
     return json.dumps(ActuatorClient.from_env().get_loggers(args.application, args.logger), indent=2)
+
+
+def set_logger_level_command(args: argparse.Namespace) -> str:
+    return json.dumps(
+        ActuatorClient.from_env().change_logger_level(args.application, args.logger, args.level),
+        indent=2,
+    )
+
+
+def actuator_command(args: argparse.Namespace) -> str:
+    return json.dumps(ActuatorClient.from_env().list_actuator_endpoints(args.application), indent=2)
+
+
+def info_command(args: argparse.Namespace) -> str:
+    return json.dumps(ActuatorClient.from_env().get_info(args.application), indent=2)
+
+
+def env_command(args: argparse.Namespace) -> str:
+    return json.dumps(ActuatorClient.from_env().get_env_properties(args.application, args.pattern), indent=2)
+
+
+def threaddump_command(args: argparse.Namespace) -> str:
+    return json.dumps(ActuatorClient.from_env().get_thread_dump(args.application), indent=2)
+
+
+def heap_info_command(args: argparse.Namespace) -> str:
+    return json.dumps(ActuatorClient.from_env().get_heap_info(args.application), indent=2)
+
+
+def scheduledtasks_command(args: argparse.Namespace) -> str:
+    return json.dumps(ActuatorClient.from_env().get_scheduled_tasks(args.application), indent=2)
+
+
+def caches_command(args: argparse.Namespace) -> str:
+    return json.dumps(ActuatorClient.from_env().get_cache_stats(args.application), indent=2)
+
+
+def httpexchanges_command(args: argparse.Namespace) -> str:
+    return json.dumps(ActuatorClient.from_env().get_http_traces(args.application), indent=2)
+
+
+def beans_command(args: argparse.Namespace) -> str:
+    return json.dumps(ActuatorClient.from_env().get_beans(args.application), indent=2)
+
+
+def conditions_command(args: argparse.Namespace) -> str:
+    return json.dumps(ActuatorClient.from_env().get_conditions(args.application), indent=2)
+
+
+def configprops_command(args: argparse.Namespace) -> str:
+    return json.dumps(ActuatorClient.from_env().get_config_properties(args.application), indent=2)
+
+
+def mappings_command(args: argparse.Namespace) -> str:
+    return json.dumps(ActuatorClient.from_env().get_mappings(args.application), indent=2)
+
+
+def actuator_flyway_command(args: argparse.Namespace) -> str:
+    return json.dumps(ActuatorClient.from_env().get_flyway_status(args.application), indent=2)
+
+
+def liquibase_command(args: argparse.Namespace) -> str:
+    return json.dumps(ActuatorClient.from_env().get_liquibase_status(args.application), indent=2)
+
+
+def integrationgraph_command(args: argparse.Namespace) -> str:
+    return json.dumps(ActuatorClient.from_env().get_integration_graph(args.application), indent=2)
+
+
+def startup_command(args: argparse.Namespace) -> str:
+    return json.dumps(ActuatorClient.from_env().get_startup(args.application), indent=2)
+
+
+def auditevents_command(args: argparse.Namespace) -> str:
+    return json.dumps(
+        ActuatorClient.from_env().get_audit_events(
+            args.application,
+            args.principal,
+            args.after,
+            args.event_type,
+        ),
+        indent=2,
+    )
+
+
+def quartz_command(args: argparse.Namespace) -> str:
+    return json.dumps(ActuatorClient.from_env().get_quartz(args.application, args.selector), indent=2)
+
+
+def sessions_command(args: argparse.Namespace) -> str:
+    return json.dumps(ActuatorClient.from_env().get_sessions(args.application, args.session_id), indent=2)
+
+
+def delete_session_command(args: argparse.Namespace) -> str:
+    return json.dumps(ActuatorClient.from_env().delete_session(args.application, args.session_id), indent=2)
+
+
+def sbom_command(args: argparse.Namespace) -> str:
+    return json.dumps(ActuatorClient.from_env().get_sbom(args.application, args.sbom_id), indent=2)
+
+
+def prometheus_command(args: argparse.Namespace) -> str:
+    return json.dumps(ActuatorClient.from_env().get_prometheus(args.application, args.max_chars), indent=2)
+
+
+def logfile_command(args: argparse.Namespace) -> str:
+    return json.dumps(ActuatorClient.from_env().get_log_file(args.application, args.max_chars), indent=2)
+
+
+def heapdump_command(args: argparse.Namespace) -> str:
+    return json.dumps(ActuatorClient.from_env().get_heap_dump_metadata(args.application), indent=2)
 
 
 if __name__ == "__main__":
