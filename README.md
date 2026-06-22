@@ -42,6 +42,11 @@ This first version is intentionally dependency-free Python. It can run as:
 
 ## Quick Start
 
+> The examples below use PowerShell syntax. On Linux/macOS, set environment
+> variables with `export NAME=value` instead of `$env:NAME = "value"`, use
+> `/` paths instead of `C:\...`, and use `:` instead of `;` to separate
+> multiple paths or URLs in a single variable.
+
 From a fresh checkout, install the package in editable mode:
 
 ```powershell
@@ -250,6 +255,44 @@ status, migration risk, and concrete next steps.
   }
 }
 ```
+
+The server speaks newline-delimited JSON-RPC over stdio, the standard MCP
+stdio transport. Any compliant MCP client can launch it with the command and
+args above.
+
+## Registering with Claude Code
+
+Claude Code can add the server from the CLI instead of hand-editing config.
+From the project directory (after `pip install -e .`):
+
+```bash
+claude mcp add spring-toolkit -- python -m spring_toolkit_mcp.server
+```
+
+Pass environment variables with `-e` (repeat per variable). On Linux/macOS use
+`:` to separate multiple roots or URLs:
+
+```bash
+claude mcp add spring-toolkit \
+  -e SPRING_TOOLKIT_ALLOWED_ROOTS=/work/project-a:/work/project-b \
+  -e SPRING_TOOLKIT_ACTUATOR_BASE_URLS=orders=http://localhost:8080/actuator \
+  -- python -m spring_toolkit_mcp.server
+```
+
+## Verifying the Server
+
+Confirm the server starts and answers the MCP handshake before wiring it into a
+client. Pipe a request to it over stdio:
+
+```bash
+printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"t","version":"1"}}}' \
+  | python -m spring_toolkit_mcp.server
+```
+
+A successful run prints a single JSON line containing `serverInfo`. To list the
+available tools, send `{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}`
+the same way. In Claude Code, `claude mcp list` should report the server as
+`✔ Connected`.
 
 ## Development
 
