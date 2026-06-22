@@ -40,6 +40,34 @@ This first version is intentionally dependency-free Python. It can run as:
 - Suggests MockMvc test skeletons for controllers
 - Guards MCP access to configured workspace roots
 
+## How It Works
+
+The server runs as a long-lived process that an MCP client (such as Claude Code)
+launches over stdio. It stays alive for the whole client session and answers
+JSON-RPC `tools/list` and `tools/call` requests. With an editable install
+(`pip install -e .`), the code runs from `src/`, so editing a file and
+restarting the client picks up the change with no reinstall.
+
+The tools split into two families with very different requirements:
+
+| Family    | App running? | What it needs                         | Reads / does                                            | Example tools |
+|-----------|--------------|---------------------------------------|---------------------------------------------------------|---------------|
+| Workspace | **No**       | A project folder on disk, in scope    | Static scan of `.java`, `application.*`, Flyway SQL, build files | `spring_project_summary`, `spring_code_review`, `list_rest_controllers`, `inspect_flyway_migrations` |
+| Runtime   | **Yes**      | A live app's Actuator URL configured  | HTTP calls to a running Spring Boot `/actuator` endpoint | `get_health_status`, `get_metrics`, `get_beans`, `get_mappings` |
+
+In short: **static review needs only the folder; live health/metrics need the
+app running** with Actuator exposed.
+
+Scope and defaults when nothing is configured:
+
+- Workspace tools can only read the client's current working directory until
+  `SPRING_TOOLKIT_ALLOWED_ROOTS` lists more absolute paths.
+- Runtime tools see **zero applications** until `SPRING_TOOLKIT_ACTUATOR_BASE_URLS`
+  (or `SPRING_TOOLKIT_ACTUATOR_BASE_URL`) is set.
+- Mutating actions — logger changes, session deletion, sensitive downloads, and
+  test runs — are **off** until their explicit policy flag is enabled (see
+  [Runtime Configuration](#runtime-configuration)).
+
 ## Quick Start
 
 > The examples below use PowerShell syntax. On Linux/macOS, set environment
