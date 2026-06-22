@@ -71,9 +71,10 @@ Scope and defaults when nothing is configured:
 ## Quick Start
 
 > The examples below use PowerShell syntax. On Linux/macOS, set environment
-> variables with `export NAME=value` instead of `$env:NAME = "value"`, use
-> `/` paths instead of `C:\...`, and use `:` instead of `;` to separate
-> multiple paths or URLs in a single variable.
+> variables with `export NAME=value` instead of `$env:NAME = "value"` and use
+> `/` paths instead of `C:\...`. Note that list-valued variables
+> (`SPRING_TOOLKIT_ALLOWED_ROOTS`, `SPRING_TOOLKIT_ACTUATOR_BASE_URLS`) are
+> always separated by `;` on every platform, not `:`.
 
 From a fresh checkout, install the package in editable mode:
 
@@ -297,12 +298,12 @@ From the project directory (after `pip install -e .`):
 claude mcp add spring-toolkit -- python -m spring_toolkit_mcp.server
 ```
 
-Pass environment variables with `-e` (repeat per variable). On Linux/macOS use
-`:` to separate multiple roots or URLs:
+Pass environment variables with `-e` (repeat per variable). Multiple roots or
+URLs in one variable are separated by `;` on every platform:
 
 ```bash
 claude mcp add spring-toolkit \
-  -e SPRING_TOOLKIT_ALLOWED_ROOTS=/work/project-a:/work/project-b \
+  -e "SPRING_TOOLKIT_ALLOWED_ROOTS=/work/project-a;/work/project-b" \
   -e SPRING_TOOLKIT_ACTUATOR_BASE_URLS=orders=http://localhost:8080/actuator \
   -- python -m spring_toolkit_mcp.server
 ```
